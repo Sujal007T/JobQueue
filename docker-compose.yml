@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # -----------------------------------------------------------------
+  # PostgreSQL 16
+  # -----------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobqueue-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: jobqueue
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d jobqueue"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # -----------------------------------------------------------------
+  # Spring Boot Job Queue Application
+  # -----------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobqueue-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: jobqueue
+      DB_USER: user
+      DB_PASSWORD: password
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # -----------------------------------------------------------------
+  # Prometheus — scrapes /actuator/prometheus every 5s
+  # -----------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: jobqueue-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - app
+
+  # -----------------------------------------------------------------
+  # Grafana — pre-configured with Prometheus datasource
+  # -----------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: jobqueue-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

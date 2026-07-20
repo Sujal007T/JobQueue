@@ -1,0 +1,21 @@
+# Build output
+target/
+
+# Test results
+test-results/
+
+# Log files
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local JDK
+jdk-21-extracted/
+jdk-21.zip
